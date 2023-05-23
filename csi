@@ -1,9 +1,103 @@
+3秒
+Current runner version: '2.304.0'
+Operating System
+Runner Image
+Runner Image Provisioner
+GITHUB_TOKEN Permissions
+Secret source: Actions
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@v2' (SHA:ee0669bd1cc54295c223e0bb666b733df41de1c5)
+Download action repository 'actions/setup-python@v2' (SHA:75f3110429a8c05be0e1bf360334e4cced2b63fa)
+Download action repository 'actions/cache@v2' (SHA:8492260343ad570701412c2f464a5877dc76bace)
+Complete job name: deploy
+4s
+Run actions/checkout@v2
+Syncing repository: cxddgtb/V2RayAggregator
+Getting Git version info
+Temporarily overriding HOME='/home/runner/work/_temp/4c2b880b-dd89-40ea-91e9-f13458f16e95' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+/usr/bin/git config --global --add safe.directory /home/runner/work/V2RayAggregator/V2RayAggregator
+Deleting the contents of '/home/runner/work/V2RayAggregator/V2RayAggregator'
+Initializing the repository
+Disabling automatic garbage collection
+Setting up auth
+Fetching the repository
+Determining the checkout info
+Checking out the ref
+/usr/bin/git log -1 --format='%H'
+'c635032d97ef48757ab5d9de4e9e82ba14aa11c5'
+0秒
+Run actions/setup-python@v2
+Successfully setup CPython (3.11.3)
+0秒
+Run actions/cache@v2
+Cache not found for input keys: Linux-pip-, Linux-pip-
+0秒
+Run sudo timedatectl set-timezone 'Asia/Tehran'
+9s
+Run pip install -r ./utils/requirements.txt
+Collecting geoip2==4.4.0 (from -r ./utils/requirements.txt (line 1))
+  Downloading geoip2-4.4.0-py2.py3-none-any.whl (25 kB)
+Collecting PyYAML==6.0 (from -r ./utils/requirements.txt (line 2))
+  Downloading PyYAML-6.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (757 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 757.9/757.9 kB 13.4 MB/s eta 0:00:00
+Collecting requests==2.28.1 (from -r ./utils/requirements.txt (line 3))
+  Downloading requests-2.28.1-py3-none-any.whl (62 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 62.8/62.8 kB 16.4 MB/s eta 0:00:00
+Collecting aiohttp<4.0.0,>=3.6.2 (from geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading aiohttp-3.8.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.0/1.0 MB 49.4 MB/s eta 0:00:00
+Collecting maxminddb<3.0.0,>=2.2.0 (from geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading maxminddb-2.3.0.tar.gz (322 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 322.1/322.1 kB 47.1 MB/s eta 0:00:00
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting urllib3<2.0.0,>=1.25.2 (from geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading urllib3-1.26.16-py2.py3-none-any.whl (143 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 143.1/143.1 kB 30.0 MB/s eta 0:00:00
+Collecting charset-normalizer<3,>=2 (from requests==2.28.1->-r ./utils/requirements.txt (line 3))
+  Downloading charset_normalizer-2.1.1-py3-none-any.whl (39 kB)
+Collecting idna<4,>=2.5 (from requests==2.28.1->-r ./utils/requirements.txt (line 3))
+  Downloading idna-3.4-py3-none-any.whl (61 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 61.5/61.5 kB 15.0 MB/s eta 0:00:00
+Collecting certifi>=2017.4.17 (from requests==2.28.1->-r ./utils/requirements.txt (line 3))
+  Downloading certifi-2023.5.7-py3-none-any.whl (156 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 157.0/157.0 kB 32.7 MB/s eta 0:00:00
+Collecting attrs>=17.3.0 (from aiohttp<4.0.0,>=3.6.2->geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading attrs-23.1.0-py3-none-any.whl (61 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 61.2/61.2 kB 13.8 MB/s eta 0:00:00
+Collecting multidict<7.0,>=4.5 (from aiohttp<4.0.0,>=3.6.2->geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading multidict-6.0.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (117 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 117.4/117.4 kB 26.2 MB/s eta 0:00:00
+Collecting async-timeout<5.0,>=4.0.0a3 (from aiohttp<4.0.0,>=3.6.2->geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading async_timeout-4.0.2-py3-none-any.whl (5.8 kB)
+Collecting yarl<2.0,>=1.0 (from aiohttp<4.0.0,>=3.6.2->geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading yarl-1.9.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (282 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 282.8/282.8 kB 46.8 MB/s eta 0:00:00
+Collecting frozenlist>=1.1.1 (from aiohttp<4.0.0,>=3.6.2->geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading frozenlist-1.3.3-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (154 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 154.3/154.3 kB 31.6 MB/s eta 0:00:00
+Collecting aiosignal>=1.1.2 (from aiohttp<4.0.0,>=3.6.2->geoip2==4.4.0->-r ./utils/requirements.txt (line 1))
+  Downloading aiosignal-1.3.1-py3-none-any.whl (7.6 kB)
+Building wheels for collected packages: maxminddb
+  Building wheel for maxminddb (pyproject.toml): started
+  Building wheel for maxminddb (pyproject.toml): finished with status 'done'
+  Created wheel for maxminddb: filename=maxminddb-2.3.0-py2.py3-none-any.whl size=16397 sha256=135d0003be7322a8be59acab191b20039380e86eeb99dfb1a940b7c1c45ed12e
+  Stored in directory: /home/runner/.cache/pip/wheels/85/f3/12/8211683425ca32d11e661b7b345254b160c6a07333e07e252f
+Successfully built maxminddb
+Installing collected packages: urllib3, PyYAML, multidict, maxminddb, idna, frozenlist, charset-normalizer, certifi, attrs, async-timeout, yarl, requests, aiosignal, aiohttp, geoip2
+Successfully installed PyYAML-6.0 aiohttp-3.8.4 aiosignal-1.3.1 async-timeout-4.0.2 attrs-23.1.0 certifi-2023.5.7 charset-normalizer-2.1.1 frozenlist-1.3.3 geoip2-4.4.0 idna-3.4 maxminddb-2.3.0 multidict-6.0.4 requests-2.28.1 urllib3-1.26.16 yarl-1.9.2
+
+Notice:  A new release of pip is available: 22.3.1 -> 23.1.2
+Notice:  To update, run: pip install --upgrade pip
+26s
 Run sudo sh ./utils/speedtest/ip_test.sh
-  sudo sh ./utils/speedtest/ip_test.sh
-  shell: /usr/bin/bash -e {0}
-  env:
-    pythonLocation: /opt/hostedtoolcache/Python/3.11.3/x64
-    LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.3/x64/lib
 --2023-05-23 17:30:08--  https://github.com/Dreamacro/clash/releases/download/v1.11.8/clash-linux-amd64-v1.11.8.gz
 Resolving github.com (github.com)... 192.30.255.113
 Connecting to github.com (github.com)|192.30.255.113|:443... connected.
@@ -221,3 +315,20 @@ ProxyChains-3.1 (http://proxychains.sf.net)
 
   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0curl: (6) Could not resolve host: ifconfig.me
 Error: Process completed with exit code 6.
+0秒
+0秒
+0秒
+Post job cleanup.
+/usr/bin/git version
+git version 2.40.1
+Temporarily overriding HOME='/home/runner/work/_temp/920beb47-f871-4d66-b321-8491c6a9d6fa' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+/usr/bin/git config --global --add safe.directory /home/runner/work/V2RayAggregator/V2RayAggregator
+/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+http.https://github.com/.extraheader
+/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+0秒
+Cleaning up orphan processes
