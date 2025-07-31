@@ -1,0 +1,368 @@
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import re
+import os
+from datetime import datetime, timedelta, timezone
+import time
+import opencc
+import socket
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# --- 全局配置与初始化 ---
+timestart = datetime.now()
+
+# --- 修复 OpenCC 加载问题 ---
+try:
+    # 使用内置配置 't2s' 而不是文件路径
+    CC_CONVERTER = opencc.OpenCC('t2s')
+    print("✅ OpenCC转换器已成功加载内置配置 't2s'")
+except Exception as e:
+    print(f"❌ 错误: 加载OpenCC转换器失败 - {e}")
+    # 尝试使用备选配置
+    try:
+        CC_CONVERTER = opencc.OpenCC('s2t.json')
+        print("✅ 使用备选配置 's2t.json' 成功")
+    except:
+        print("❌ 无法加载任何OpenCC配置，使用简体转换功能")
+        # 简易的简繁转换作为回退方案
+        class FallbackConverter:
+            def convert(self, text):
+                return text.replace('臺', '台').replace('灣', '湾')
+        CC_CONVERTER = FallbackConverter()
+
+# 配置 requests 会话
+def create_requests_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    })
+    retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
+HTTP_SESSION = create_requests_session()
+
+# 分类系统配置
+CATEGORY_CONFIG = {
+    "main": {
+        "ys": {"name": "央视频道", "keywords": ["cctv", "cntv", "央视", "cgtn"], 
+               "dictionary": ["CCTV1", "CCTV2", "CCTV3", "CCTV4", "CCTV5", "CCTV5+", "CCTV6", "CCTV7", "CCTV8", "CCTV9", 
+                             "CCTV10", "CCTV11", "CCTV12", "CCTV13", "CCTV14", "CCTV15", "CCTV16", "CCTV17", "CCTV4K", "CCTV8K"]},
+        "ws": {"name": "卫视频道", "keywords": ["卫视", "weishi", "stv"], 
+               "dictionary": ["北京卫视", "湖南卫视", "浙江卫视", "东方卫视", "江苏卫视", "天津卫视", "山东卫视", "广东卫视"]},
+        "ty": {"name": "体育频道", "keywords": ["体育", "sports", "ty", "tiyu"], 
+               "dictionary": ["CCTV5", "CCTV5+", "广东体育", "五星体育", "北京体育"]},
+    },
+    "international": {
+        "jp": {"name": "日本频道", "keywords": ["日本", "japan", "jp", "nhk"], "dictionary": ["NHK综合", "NHK教育", "NHKBS1", "NHKBS4K"]},
+        "kr": {"name": "韩国频道", "keywords": ["韩国", "korea", "kr", "kbs"], "dictionary": ["KBS1", "KBS2", "KBSWorld", "MBC", "SBS"]},
+    },
+    "regional": {
+        "sh": {"name": "上海频道", "keywords": ["上海", "shanghai", "sh", "东方"], "dictionary": ["东方卫视", "上海新闻综合", "上海都市", "上海东方影视"]},
+        "bj": {"name": "北京频道", "keywords": ["北京", "beijing", "bj", "北京台"], "dictionary": ["北京卫视", "北京新闻", "北京财经", "北京影视"]},
+    },
+    "genre": {
+        "yl": {"name": "娱乐综合", "keywords": ["娱乐", "entertain", "yule", "搞笑"], "dictionary": ["湖南娱乐", "东方娱乐", "江苏综艺", "浙江娱乐"]},
+        "xp": {"name": "小品天地", "keywords": ["小品", "sketch", "comedy", "搞笑"], "dictionary": ["央视小品", "欢乐小品", "喜剧小品", "经典小品"]},
+    },
+    "specialty": {
+        "news": {"name": "新闻频道", "keywords": ["news", "新闻", "xinwen", "时政"], "dictionary": ["新闻频道", "时政新闻", "财经新闻", "国际新闻"]},
+        "sports": {"name": "体育频道", "keywords": ["sports", "体育", "tiyu", "football"], "dictionary": ["体育频道", "足球", "篮球", "网球"]},
+    },
+    "region": {
+        "asia": {"name": "亚洲频道", "keywords": ["asia", "亚洲", "yazhou"], "dictionary": ["亚洲卫视", "东亚频道", "东南亚频道", "南亚频道"]},
+        "europe": {"name": "欧洲频道", "keywords": ["europe", "欧洲", "ouzhou"], "dictionary": ["欧洲卫视", "西欧频道", "东欧频道", "北欧频道"]},
+    }
+}
+
+# 频道名称清理与纠错
+REMOVAL_LIST = ["「IPV4」", "「IPV6」", "[ipv6]", "[ipv4]", "_电信", "电信", "（HD）", "[超清]", "高清", "超清", 
+                "-HD", "(HK)", "AKtv", "@", "IPV6", "🎞️", "🎦", " ", "[BD]", "[VGA]", "[HD]", "[SD]", 
+                "(1080p)", "(720p)", "(480p)"]
+REPLACEMENTS = {"CCTV-": "CCTV", "CCTV0": "CCTV", "PLUS": "+", "NewTV-": "NewTV", "iHOT-": "iHOT", "NEW": "New", "New_": "New"}
+
+# --- 核心功能函数 ---
+
+def read_txt_to_array(file_name):
+    try:
+        with open(file_name, 'r', encoding='utf-8') as file:
+            return [line.strip() for line in file if line.strip()]
+    except Exception as e:
+        print(f"读取文件 '{file_name}' 出错: {e}")
+        return []
+
+def load_corrections(filename):
+    corrections = {}
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip() and not line.startswith('#'):
+                    parts = line.strip().split(',')
+                    if len(parts) > 1:
+                        correct_name = parts[0].strip()
+                        for name in parts[1:]:
+                            corrections[name.strip()] = correct_name
+    except Exception as e:
+        print(f"加载纠错文件 '{filename}' 出错: {e}")
+    return corrections
+
+def fetch_source_content(url):
+    try:
+        response = HTTP_SESSION.get(url, timeout=15)
+        response.raise_for_status()
+        
+        content = response.content
+        text = None
+        for encoding in ['utf-8', 'gbk', 'gb2312', 'iso-8859-1', 'big5']:
+            try:
+                text = content.decode(encoding)
+                if text.strip().startswith("#EXTM3U"):
+                    text = convert_m3u_to_txt(text)
+                return text
+            except UnicodeDecodeError:
+                continue
+        print(f"警告: 无法解码源 {url}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"处理URL源出错: {url} ({e})")
+        return None
+
+def convert_m3u_to_txt(m3u_content):
+    lines = m3u_content.strip().split('\n')
+    txt_lines = []
+    channel_name = ""
+    for line in lines:
+        line = line.strip()
+        if line.startswith("#EXTM3U"):
+            continue
+        if line.startswith("#EXTINF"):
+            channel_name = line.split(',')[-1].strip()
+        elif line.startswith("http") or line.startswith("rtmp"):
+            if channel_name:
+                txt_lines.append(f"{channel_name},{line}")
+                channel_name = ""
+        elif "#genre#" not in line and "," in line and re.match(r'^[^,]+,[^\s]+://[^\s]+$', line):
+            txt_lines.append(line)
+    return '\n'.join(txt_lines)
+
+def parse_and_clean_channels(source_content, corrections_name):
+    channels = set()
+    if not source_content:
+        return channels
+    
+    lines = source_content.strip().split('\n')
+    for line in lines:
+        line = line.strip()
+        if not line or "#genre#" in line or "#EXTINF:" in line:
+            continue
+        
+        try:
+            parts = line.split(',', 1)
+            if len(parts) < 2:
+                continue
+                
+            channel_name = parts[0].strip()
+            channel_url = parts[1].split('$')[0].strip()
+
+            if not channel_url:
+                continue
+            
+            # 使用 OpenCC 转换
+            try:
+                simplified_name = CC_CONVERTER.convert(channel_name)
+            except Exception as e:
+                print(f"OpenCC转换失败: {channel_name} - {e}")
+                simplified_name = channel_name
+            
+            cleaned_name = simplified_name
+            for item in REMOVAL_LIST:
+                cleaned_name = cleaned_name.replace(item, "")
+            for old, new in REPLACEMENTS.items():
+                cleaned_name = cleaned_name.replace(old, new)
+            
+            corrected_name = corrections_name.get(cleaned_name.strip(), cleaned_name.strip())
+            
+            channels.add((corrected_name, channel_url))
+        except Exception as e:
+            print(f"解析频道行失败: {line} - {e}")
+    return channels
+
+def check_channel_availability(channel_info, timeout=2):
+    name, url = channel_info
+    if "127.0.0.1" in url or "localhost" in url:
+        return name, url, 0
+
+    try:
+        start_time = time.time()
+        response = HTTP_SESSION.head(url, timeout=timeout, allow_redirects=True)
+        end_time = time.time()
+        latency = int((end_time - start_time) * 1000)
+        if response.status_code < 400:
+            return name, url, latency
+        return name, url, -1
+    except Exception:
+        return name, url, -1
+
+def classify_channel(channel_name, channel_url):
+    channel_name_lower = channel_name.lower()
+    
+    if "春晚" in channel_name: return "cw"
+    if "直播中国" in channel_name: return "zb"
+    if "mtv" in channel_name_lower: return "mtv"
+    if "radio" in channel_name_lower or "广播" in channel_name or "fm" in channel_name_lower: return "radio"
+    
+    for category_type in CATEGORY_CONFIG.values():
+        for category_id, info in category_type.items():
+            for keyword in info.get("dictionary", []):
+                if keyword in channel_name:
+                    return category_id
+            for keyword in info.get("keywords", []):
+                if keyword in channel_name_lower:
+                    return category_id
+    return "other"
+
+def sort_data(order, data):
+    order_dict = {name: i for i, name in enumerate(order)}
+    return sorted(data, key=lambda line: order_dict.get(line.split(',')[0], len(order)))
+
+def save_files(final_lists):
+    all_lines = []
+    utc_time = datetime.now(timezone.utc)
+    beijing_time = utc_time + timedelta(hours=8)
+    version = f"{beijing_time.strftime('%Y%m%d %H:%M')},https://gcalic.v.myalicdn.com/gc/wgw05_1/index.m3u8?contentid=2820180516001"
+    all_lines.extend([f"更新时间,#genre#", version, ''])
+
+    total_channels = 0
+
+    def add_category(name, lines, dictionary=None):
+        nonlocal total_channels
+        if lines:
+            all_lines.append(f"{name},#genre#")
+            sorted_lines = sort_data(dictionary, lines) if dictionary else sorted(lines)
+            all_lines.extend(sorted_lines)
+            all_lines.append('')
+            total_channels += len(lines)
+
+    for category_type in CATEGORY_CONFIG.values():
+        for cat_id, info in category_type.items():
+            if final_lists[cat_id]:
+                add_category(info["name"], final_lists[cat_id], info.get("dictionary"))
+    
+    add_category("春晚", final_lists['cw'])
+    add_category("直播中国", final_lists['zb'])
+    add_category("MTV", final_lists['mtv'])
+    add_category("收音机频道", final_lists['radio'])
+    add_category("其他频道", final_lists['other'])
+
+    final_content = "\n".join(all_lines)
+
+    try:
+        with open("live.txt", "w", encoding='utf-8') as f:
+            f.write(final_content)
+        print("✅ 频道文件已保存: live.txt")
+    except Exception as e:
+        print(f"❌ 保存 live.txt 出错: {e}")
+
+    try:
+        m3u_content = '#EXTM3U x-tvg-url="https://epg.112114.xyz/pp.xml.gz"\n'
+        group_title = ""
+        for line in final_content.strip().split('\n'):
+            if not line.strip(): continue
+            if "#genre#" in line:
+                group_title = line.split(',')[0]
+                continue
+            if "," in line:
+                name, url = line.split(',', 1)
+                logo = f"https://epg.112114.xyz/logo/{name}.png"
+                m3u_content += f'#EXTINF:-1 tvg-name="{name}" tvg-logo="{logo}" group-title="{group_title}",{name}\n{url}\n'
+        with open("live.m3u", "w", encoding='utf-8') as f:
+            f.write(m3u_content)
+        print("✅ M3U文件已保存: live.m3u")
+    except Exception as e:
+        print(f"❌ 生成 live.m3u 出错: {e}")
+
+    return total_channels
+
+# --- 主执行流程 ---
+
+def main():
+    print("➡️ 步骤 1/5: 加载本地资源 (URLs, 纠错词典)...")
+    assets_dir = 'assets'
+    urls_file = os.path.join(assets_dir, 'urls.txt')
+    corrections_file = os.path.join(assets_dir, 'corrections_name.txt')
+
+    urls_to_process = read_txt_to_array(urls_file)
+    corrections = load_corrections(corrections_file)
+
+    if not urls_to_process:
+        print(f"❌ 错误: '{urls_file}' 为空或不存在，程序退出。")
+        return
+
+    print(f"\n➡️ 步骤 2/5: 并发获取 {len(urls_to_process)} 个在线源...")
+    all_raw_channels = set()
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        future_to_url = {executor.submit(fetch_source_content, url): url for url in urls_to_process}
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                content = future.result()
+                if content:
+                    parsed_channels = parse_and_clean_channels(content, corrections)
+                    all_raw_channels.update(parsed_channels)
+                    print(f"✓ 成功处理: {url}")
+                else:
+                    print(f"⚠️ 空内容: {url}")
+            except Exception as e:
+                print(f"❌ 处理源失败: {url} - {e}")
+    
+    print(f"\n✅ 成功获取并解析了 {len(all_raw_channels)} 个不重复的频道。")
+
+    if not all_raw_channels:
+        print("❌ 错误: 没有获取到任何频道，程序退出")
+        return
+
+    print(f"\n➡️ 步骤 3/5: 并发检测 {len(all_raw_channels)} 个频道的有效性...")
+    valid_channels = []
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        future_to_channel = {executor.submit(check_channel_availability, channel): channel for channel in all_raw_channels}
+        
+        processed_count = 0
+        total_count = len(future_to_channel)
+        for future in as_completed(future_to_channel):
+            processed_count += 1
+            try:
+                name, url, latency = future.result()
+                if latency >= 0:
+                    valid_channels.append((name, url))
+                    status = "✓" if latency >= 0 else "✗"
+                    print(f"\r  - [{processed_count}/{total_count}] {status} {name[:20]}... 延迟: {latency}ms", end="")
+            except Exception as e:
+                print(f"\n❌ 检测失败: {e}")
+    
+    print(f"\n\n✅ 检测完成，发现 {len(valid_channels)} 个有效频道。")
+
+    print("\n➡️ 步骤 4/5: 对有效频道进行分类...")
+    categorized_lists = {cat_id: [] for cat_type in CATEGORY_CONFIG.values() for cat_id in cat_type}
+    categorized_lists.update({'cw': [], 'zb': [], 'mtv': [], 'radio': [], 'other': []})
+
+    for name, url in valid_channels:
+        category = classify_channel(name, url)
+        categorized_lists[category].append(f"{name},{url}")
+    print("✅ 分类完成。")
+
+    print("\n➡️ 步骤 5/5: 生成最终文件并统计结果...")
+    total_saved = save_files(categorized_lists)
+
+    print("\n--- 任务完成 ---")
+    timeend = datetime.now()
+    elapsed = timeend - timestart
+    minutes, seconds = divmod(int(elapsed.total_seconds()), 60)
+    print(f"📊 总耗时: {minutes}分 {seconds}秒")
+    print(f"📊 总计有效频道数: {total_saved}")
+
+if __name__ == "__main__":
+    main()
