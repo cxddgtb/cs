@@ -1,0 +1,48 @@
+name: '每日任务'
+
+on:
+  schedule:
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+jobs:
+  run_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安装 OpenCC 系统依赖
+        run: |
+          sudo apt-get update
+          # 只安装核心 OpenCC 包
+          sudo apt-get install -y opencc libopencc-dev
+
+      - name: 安装 Python 依赖库
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+          pip install opencc-python-reimplemented
+          pip install beautifulsoup4
+          pip install lxml
+
+      - name: 运行 Python 脚本
+        run: python main.py
+
+      - name: 提交更改
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add live.txt live.m3u live_lite.txt live_lite.m3u others.txt
+          git commit -m ":tada: 自动更新 $(date +'%Y%m%d %H:%M')" || echo "没有需要提交的更改"
+
+      - name: 推送更改
+        run: git push --force origin HEAD:main
